@@ -1,5 +1,6 @@
 <?php
-uses('folder', 'file', 'image_kit_path');
+require_once(dirname(dirname(dirname(__FILE__))).'/config/path.php');
+uses('folder', 'file');
 App::import('Component', 'ImageKit.Image');
 
 class UploadBehavior extends ModelBehavior {

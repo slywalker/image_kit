@@ -1,4 +1,6 @@
 <?php
+require_once(dirname(dirname(dirname(__FILE__))).'/config/path.php');
+
 class ImageHelper extends AppHelper {
 	public $helpers = array('Html');
 
