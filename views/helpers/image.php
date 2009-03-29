@@ -4,7 +4,7 @@ class ImageHelper extends AppHelper {
 
 	function originUrl($path)
 	{
-		return Configure::read('ThumbUrl').'origin/'.$path;
+		return Configure::read('ImageKit.thumbUrl').'origin/'.$path;
 	}
 	
 	function origin($path, $options = array())
@@ -42,7 +42,7 @@ class ImageHelper extends AppHelper {
 		if ($params['type'] && $params['width'] && $params['height']) {
 			$params['path'] = $path;
 			$path = implode('/', $params);
-			return Configure::read('ThumbUrl').$path;
+			return Configure::read('ImageKit.thumbUrl').$path;
 		}
 		return false;
 	}

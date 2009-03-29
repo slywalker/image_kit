@@ -1,12 +1,10 @@
 <?php
-define('UPLOAD_BEHAVIOR_FILE_ROOT', ROOT.DS.'origin'.DS);
-
-uses('folder', 'file');
+uses('folder', 'file', 'image_kit_path');
 App::import('Component', 'ImageKit.Image');
 
 class UploadBehavior extends ModelBehavior {
 
-	var $fileRoot = UPLOAD_BEHAVIOR_FILE_ROOT;
+	var $fileRoot = null;
 	var $defaultOptions = array(
 		'dir' => null,
 		'allowedMime' => array(
@@ -51,6 +49,8 @@ class UploadBehavior extends ModelBehavior {
 	
 	function setup(&$model, $config=array())
 	{
+		$this->fileRoot = Configure::read('ImageKit.root');
+		
 		$this->Folder =& new Folder;
 		foreach ($config as $field => $options) {
 			if (!is_array($options)) {
