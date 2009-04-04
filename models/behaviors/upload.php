@@ -97,7 +97,7 @@ class UploadBehavior extends ModelBehavior {
 					$options['allowedExt']);
 			}
 
-			$this->config[$field] =
+			$this->config[$model->alias][$field] =
 				Set::merge($this->defaultOptions, $options);
 			$model->validate[$field] = $this->validate;
 		}
@@ -125,7 +125,7 @@ class UploadBehavior extends ModelBehavior {
 			if (!is_array($value)) {
 				return false;
 			}
-			if (isset($this->config[$field])) {
+			if (isset($this->config[$model->alias][$field])) {
 				return true;
 			} else {
 				$this->log('UploadBehavior Error: The field "'.$field.'" wasn\'t declared as part of the UploadBehavior in model "'.$model->name.'".');
@@ -138,7 +138,8 @@ class UploadBehavior extends ModelBehavior {
 	function uploadCheckDir(&$model, $data)
 	{
 		foreach($data as $field => $value) {
-			$dir = $this->fileRoot . $this->config[$field]['dir'];
+			$dir =
+				$this->fileRoot.$this->config[$model->alias][$field]['dir'];
 			// Check if directory exists and create it if required
 			if (!is_dir($dir)) {
 				if (!$this->Folder->mkdir($dir)) {
@@ -155,7 +156,8 @@ class UploadBehavior extends ModelBehavior {
 			if (!is_writable($dir)) {
 				trigger_error(
 					'UploadBehavior Error: The directory ' .
-					$this->config[$field]['dir'].' isn\'t writable.',
+					$this->config[$model->alias][$field]['dir'].
+					' isn\'t writable.',
 					E_USER_WARNING);
 				return false;
 			}
@@ -176,14 +178,14 @@ class UploadBehavior extends ModelBehavior {
 	function uploadCheckMaxSize(&$model, $data)
 	{
 		foreach($data as $field => $value){
-			if (!isset($this->config[$field])) {
+			if (!isset($this->config[$model->alias][$field])) {
 				trigger_error(
 					'UploadBehavior Error: The Config ' .
 					$field.' isn\'t exsists.',
 					E_USER_WARNING);
 				return false;
 			}
-			$max_size = $this->config[$field]['max_size'];
+			$max_size = $this->config[$model->alias][$field]['max_size'];
 			if (!empty($value['name']) && $value['size'] > $max_size) {
 				return false;
 			}
@@ -194,14 +196,15 @@ class UploadBehavior extends ModelBehavior {
 	function uploadCheckInvalidMime(&$model, $data)
 	{
 		foreach($data as $field => $value){
-			if (!isset($this->config[$field]['allowedMime'])) {
+			if (!isset($this->config[$model->alias][$field]['allowedMime'])) {
 				trigger_error(
 					'UploadBehavior Error: The Config ' .
 					$field.' isn\'t exsists.',
 					E_USER_WARNING);
 				return false;
 			}
-			$allowedMime = $this->config[$field]['allowedMime'];
+			$allowedMime =
+				$this->config[$model->alias][$field]['allowedMime'];
 			if (!empty($value['name']) && !empty($allowedMime) && 
 				!in_array($value['type'], $allowedMime)) {
 				return false;
@@ -213,14 +216,14 @@ class UploadBehavior extends ModelBehavior {
 	function uploadCheckInvalidExt(&$model, $data)
 	{
 		foreach($data as $field => $value){
-			if (!isset($this->config[$field])) {
+			if (!isset($this->config[$model->alias][$field])) {
 				trigger_error(
 					'UploadBehavior Error: The Config ' .
 					$field.' isn\'t exsists.',
 					E_USER_WARNING);
 				return false;
 			}
-			$allowedExt = $this->config[$field]['allowedExt'];
+			$allowedExt = $this->config[$model->alias][$field]['allowedExt'];
 			if (!empty($value['name']) && !empty($allowedExt)) {
 				$File = new File($value['name']);
 				$ext = low($File->ext());
@@ -239,16 +242,17 @@ class UploadBehavior extends ModelBehavior {
 	function _upload(&$model, $field)
 	{
 		$data = $model->data[$model->alias][$field];
-		$file = $this->config[$field]['dir'] . low($data['name']);
+		$file =
+			$this->config[$model->alias][$field]['dir'].low($data['name']);
 		$File = new File($this->fileRoot . $file);
 		$file = str_replace(
 			$File->name() . '.',
 			String::uuid() . '.',
 			$file);
-		if (!empty($this->config[$field]['ext'])) {
+		if (!empty($this->config[$model->alias][$field]['ext'])) {
 			$file = str_replace(
 				'.' . $File->ext(), 
-				'.' . $this->config[$field]['ext'], 
+				'.' . $this->config[$model->alias][$field]['ext'], 
 				$file);
 		}
 		
@@ -262,18 +266,18 @@ class UploadBehavior extends ModelBehavior {
 		chmod($this->fileRoot . $file, 0666);
 		
 		// 拡張子指定のときは縮小して保存
-		if ($this->config[$field]['ext']) {
+		if ($this->config[$model->alias][$field]['ext']) {
 			$Image = new ImageComponent;
 			$Image->set($this->fileRoot . $file);
 			$Image->reduce(500, 500);
 			$Image->output($this->fileRoot . $file,
-				$this->config[$field]['ext']);
+				$this->config[$model->alias][$field]['ext']);
 		}
 		return $file;
 	}
 	
 	function beforeSave(&$model) {
-		foreach ($this->config as $field => $options) {
+		foreach ($this->config[$model->alias] as $field => $options) {
 			if (isset($model->data[$model->alias][$field])) {
 				$value = '';
 				$data = $model->data[$model->alias][$field];
@@ -327,7 +331,7 @@ class UploadBehavior extends ModelBehavior {
 	}
 
 	function beforeDelete(&$model) {
-		foreach ($this->config as $field => $options) {
+		foreach ($this->config[$model->alias] as $field => $options) {
 			if (!$this->_remove($model, $field)) {
 				return false;
 			}
