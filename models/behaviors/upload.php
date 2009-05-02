@@ -60,17 +60,14 @@ class UploadBehavior extends ModelBehavior {
 			}
 			// Check if given field exists
 			if(!$model->hasField($field)) {
-				trigger_error(
-					'UploadBehavior Error: The field "' . $config['field'] .
-					'" doesn\'t exists in the model "' . $model->name . '".',
-					 E_USER_WARNING);
+				trigger_error('UploadBehavior Error: The field "'.$config['field'].'" doesn\'t exists in the model "'.$model->name.'".', E_USER_WARNING);
 			}
 			//
 			if (!empty($options['dir'])) {
 				$options['dir'] = ltrim($options['dir'], DS);
-				$options['dir'] = rtrim($options['dir'], DS) . DS;
+				$options['dir'] = rtrim($options['dir'], DS).DS;
 			} else {
-				$options['dir'] = Inflector::underscore($model->name) . DS;
+				$options['dir'] = Inflector::underscore($model->name).DS;
 			}
 			//
 			if (!empty($options['max_size'])) {
@@ -128,7 +125,7 @@ class UploadBehavior extends ModelBehavior {
 			if (isset($this->config[$model->alias][$field])) {
 				return true;
 			} else {
-				$this->log('UploadBehavior Error: The field "'.$field.'" wasn\'t declared as part of the UploadBehavior in model "'.$model->name.'".');
+				trigger_error('UploadBehavior Error: The field "'.$field.'" wasn\'t declared as part of the UploadBehavior in model "'.$model->name.'".', E_USER_WARNING);
 				return false;
 			}
 		}
@@ -143,22 +140,14 @@ class UploadBehavior extends ModelBehavior {
 			// Check if directory exists and create it if required
 			if (!is_dir($dir)) {
 				if (!$this->Folder->mkdir($dir)) {
-					trigger_error(
-						'UploadBehavior Error: The directory ' .
-						$dir .
-						' does not exist and cannot be created.',
-						E_USER_WARNING);
+					trigger_error('UploadBehavior Error: The directory '.$dir.' does not exist and cannot be created.', E_USER_WARNING);
 					return false;
 				}
 			}
 
 			// Check if directory is writable
 			if (!is_writable($dir)) {
-				trigger_error(
-					'UploadBehavior Error: The directory ' .
-					$this->config[$model->alias][$field]['dir'].
-					' isn\'t writable.',
-					E_USER_WARNING);
+				trigger_error('UploadBehavior Error: The directory '.$this->config[$model->alias][$field]['dir'].' isn\'t writable.', E_USER_WARNING);
 				return false;
 			}
 		}
@@ -179,10 +168,7 @@ class UploadBehavior extends ModelBehavior {
 	{
 		foreach($data as $field => $value){
 			if (!isset($this->config[$model->alias][$field])) {
-				trigger_error(
-					'UploadBehavior Error: The Config ' .
-					$field.' isn\'t exsists.',
-					E_USER_WARNING);
+				trigger_error('UploadBehavior Error: The Config '.$field.' isn\'t exsists.', E_USER_WARNING);
 				return false;
 			}
 			$max_size = $this->config[$model->alias][$field]['max_size'];
@@ -197,10 +183,7 @@ class UploadBehavior extends ModelBehavior {
 	{
 		foreach($data as $field => $value){
 			if (!isset($this->config[$model->alias][$field]['allowedMime'])) {
-				trigger_error(
-					'UploadBehavior Error: The Config ' .
-					$field.' isn\'t exsists.',
-					E_USER_WARNING);
+				trigger_error('UploadBehavior Error: The Config '.$field.' isn\'t exsists.', E_USER_WARNING);
 				return false;
 			}
 			$allowedMime =
@@ -217,10 +200,7 @@ class UploadBehavior extends ModelBehavior {
 	{
 		foreach($data as $field => $value){
 			if (!isset($this->config[$model->alias][$field])) {
-				trigger_error(
-					'UploadBehavior Error: The Config ' .
-					$field.' isn\'t exsists.',
-					E_USER_WARNING);
+				trigger_error('UploadBehavior Error: The Config '.$field.' isn\'t exsists.', E_USER_WARNING);
 				return false;
 			}
 			$allowedExt = $this->config[$model->alias][$field]['allowedExt'];
@@ -244,33 +224,30 @@ class UploadBehavior extends ModelBehavior {
 		$data = $model->data[$model->alias][$field];
 		$file =
 			$this->config[$model->alias][$field]['dir'].low($data['name']);
-		$File = new File($this->fileRoot . $file);
+		$File = new File($this->fileRoot.$file);
 		$file = str_replace(
-			$File->name() . '.',
-			String::uuid() . '.',
+			$File->name().'.',
+			String::uuid().'.',
 			$file);
 		if (!empty($this->config[$model->alias][$field]['ext'])) {
 			$file = str_replace(
-				'.' . $File->ext(), 
-				'.' . $this->config[$model->alias][$field]['ext'], 
+				'.'.$File->ext(), 
+				'.'.$this->config[$model->alias][$field]['ext'], 
 				$file);
 		}
 		
-		if (!move_uploaded_file($data['tmp_name'], $this->fileRoot . $file)) {
-			trigger_error(
-				'UploadBehavior Error: The file ' .
-				$file.' can\'t upload.',
-				E_USER_WARNING);
+		if (!move_uploaded_file($data['tmp_name'], $this->fileRoot.$file)) {
+			trigger_error('UploadBehavior Error: The file '.$file.' can\'t upload.', E_USER_WARNING);
 			return false;
 		}
-		chmod($this->fileRoot . $file, 0666);
+		chmod($this->fileRoot.$file, 0666);
 		
 		// 拡張子指定のときは縮小して保存
 		if ($this->config[$model->alias][$field]['ext']) {
 			$Image = new ImageComponent;
-			$Image->set($this->fileRoot . $file);
+			$Image->set($this->fileRoot.$file);
 			$Image->reduce(500, 500);
-			$Image->output($this->fileRoot . $file,
+			$Image->output($this->fileRoot.$file,
 				$this->config[$model->alias][$field]['ext']);
 		}
 		return $file;
@@ -317,13 +294,10 @@ class UploadBehavior extends ModelBehavior {
 			$id = $model->data[$model->alias]['id'];
 		}
 		$file = $model->field($field, array('id' => $id));
-		$file = $this->fileRoot . $file;
+		$file = $this->fileRoot.$file;
 		if (is_file($file)) {
 			if (!@unlink($file)) {
-				trigger_error(
-					'UploadBehavior Error: The file ' .
-					$file.' can\'t remove.',
-					E_USER_WARNING);
+				trigger_error('UploadBehavior Error: The file '.$file.' can\'t remove.', E_USER_WARNING);
 				return false;
 			}
 		}
