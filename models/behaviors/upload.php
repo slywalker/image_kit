@@ -15,10 +15,13 @@ class UploadBehavior extends ModelBehavior {
 		'allowedExt' => array('jpg', 'jpeg', 'png', 'gif'),
 		'max_size' => 2097152,
 		'ext' => null,
-		'allowEmpty'=>false,
 	);
 	
 	var $validate = array(
+		'FieldName' => array(
+			'rule' => array('uploadCheckFieldName'),
+			'message' => 'フォームエラー'
+		),
 		'Dir' => array(
 			'rule' => array('uploadCheckDir'),
 			'message' => 'ディレクトリエラー'
@@ -39,25 +42,15 @@ class UploadBehavior extends ModelBehavior {
 			'rule' => array('uploadCheckInvalidExt'),
 			'message' => '許可されていない拡張子です'
 		),
-		'FieldName' => array(
-			'rule' => array('uploadCheckFieldName'),
-			'message' => 'フォームエラー'
-		),
-		'Empty' => array(
-			'rule' => array('uploadCheckEmpty'),
-			'message' => 'ファイルを指定してください'
-		),
 	);
 
 	var $config = array();
-	
-	var $Folder = null;
+	var $_data = array();
 	
 	function setup(&$model, $config=array())
 	{
 		$this->fileRoot = Configure::read('ImageKit.root');
 		
-		$this->Folder =& new Folder;
 		foreach ($config as $field => $options) {
 			if (!is_array($options)) {
 				$field = $options;
@@ -67,45 +60,44 @@ class UploadBehavior extends ModelBehavior {
 			if(!$model->hasField($field)) {
 				trigger_error('UploadBehavior Error: The field "'.$config['field'].'" doesn\'t exists in the model "'.$model->name.'".', E_USER_WARNING);
 			}
+
+			if (isset($options['allowedMime']) && !is_array($options['allowedMime'])) {
+				$options['allowedMime'] = array($options['allowedMime']);
+			}
 			//
-			if (!empty($options['dir'])) {
+			if (isset($options['allowedExt']) && !is_array($options['allowedExt'])) {
+				$options['allowedExt'] = array($options['allowedExt']);
+			}
+
+			$options = Set::merge($this->defaultOptions, $options);
+			//
+			if ($options['dir']) {
 				$options['dir'] = ltrim($options['dir'], DS);
 				$options['dir'] = rtrim($options['dir'], DS).DS;
 			} else {
 				$options['dir'] = Inflector::underscore($model->name).DS;
 			}
 			//
-			if (!empty($options['max_size'])) {
+			if ($options['max_size']) {
 				$options['max_size'] =
-					$this->sizeToBytes($options['max_size']);
-			}
-			//
-			if (!empty($options['allowedMime'])) {
-				if (!is_array($options['allowedMime'])) {
-					$options['allowedMime'] =
-						array($options['allowedMime']);
-				}
-				$options['allowedMime'] = array_merge(
-					$this->defaultOptions['allowedMime'],
-					$options['allowedMime']);
-			}
-			//
-			if (!empty($options['allowedExt'])) {
-				if (!is_array($options['allowedExt'])) {
-					$options['allowedExt'] = array($options['allowedExt']);
-				}
-				$options['allowedExt'] = array_merge(
-					$this->defaultOptions['allowedExt'],
-					$options['allowedExt']);
+					$this->__sizeToBytes($options['max_size']);
 			}
 
-			$this->config[$model->alias][$field] =
-				Set::merge($this->defaultOptions, $options);
-			$model->validate[$field] = $this->validate;
+			$this->config[$model->alias][$field] = $options;
+
+			$validate = $this->validate;
+			if (!empty($model->validate[$field])) {
+				if (isset($model->validate[$field]['rule'])) {
+					$model->validate[$field] =
+						array($model->validate[$field]);
+				}
+				$validate = Set::merge($validate, $model->validate[$field]);
+			}
+			$model->validate[$field] = $validate;
 		}
 	}
 
-	function sizeToBytes($size)
+	function __sizeToBytes($size)
 	{
 		if(is_numeric($size)) return $size;
 		if(!preg_match('/^[1-9][0-9]* (kb|mb|gb|tb)$/i', $size)){
@@ -124,12 +116,7 @@ class UploadBehavior extends ModelBehavior {
 	function uploadCheckFieldName(&$model, $data)
 	{
 		foreach($data as $field => $value){
-			if (!is_array($value)) {
-				return false;
-			}
-			if (isset($this->config[$model->alias][$field])) {
-				return true;
-			} else {
+			if (!isset($this->config[$model->alias][$field])) {
 				trigger_error('UploadBehavior Error: The field "'.$field.'" wasn\'t declared as part of the UploadBehavior in model "'.$model->name.'".', E_USER_WARNING);
 				return false;
 			}
@@ -140,11 +127,12 @@ class UploadBehavior extends ModelBehavior {
 	function uploadCheckDir(&$model, $data)
 	{
 		foreach($data as $field => $value) {
-			$dir =
-				$this->fileRoot.$this->config[$model->alias][$field]['dir'];
+			$config = $this->config[$model->alias][$field];
+			$dir = $this->fileRoot.$config['dir'];
 			// Check if directory exists and create it if required
 			if (!is_dir($dir)) {
-				if (!$this->Folder->mkdir($dir)) {
+				$Folder =& new Folder;
+				if ($Folder->mkdir($dir)) {
 					trigger_error('UploadBehavior Error: The directory '.$dir.' does not exist and cannot be created.', E_USER_WARNING);
 					return false;
 				}
@@ -152,7 +140,7 @@ class UploadBehavior extends ModelBehavior {
 
 			// Check if directory is writable
 			if (!is_writable($dir)) {
-				trigger_error('UploadBehavior Error: The directory '.$this->config[$model->alias][$field]['dir'].' isn\'t writable.', E_USER_WARNING);
+				trigger_error('UploadBehavior Error: The directory '.$config['dir'].' isn\'t writable.', E_USER_WARNING);
 				return false;
 			}
 		}
@@ -162,7 +150,8 @@ class UploadBehavior extends ModelBehavior {
 	function uploadCheckUploadError(&$model, $data)
 	{
 		foreach($data as $field => $value){
-			if(!empty($value['name']) && $value['error'] > 0){
+			$_data = $this->_data[$model->alias][$field];
+			if(!empty($_data['name']) && $_data['error'] > 0){
 				return false;
 			}
 		}
@@ -172,12 +161,9 @@ class UploadBehavior extends ModelBehavior {
 	function uploadCheckMaxSize(&$model, $data)
 	{
 		foreach($data as $field => $value){
-			if (!isset($this->config[$model->alias][$field])) {
-				trigger_error('UploadBehavior Error: The Config '.$field.' isn\'t exsists.', E_USER_WARNING);
-				return false;
-			}
-			$max_size = $this->config[$model->alias][$field]['max_size'];
-			if (!empty($value['name']) && $value['size'] > $max_size) {
+			$config = $this->config[$model->alias][$field];
+			$_data = $this->_data[$model->alias][$field];
+			if (!empty($_data['name']) && $_data['size'] > $config['max_size']) {
 				return false;
 			}
 		}
@@ -187,14 +173,9 @@ class UploadBehavior extends ModelBehavior {
 	function uploadCheckInvalidMime(&$model, $data)
 	{
 		foreach($data as $field => $value){
-			if (!isset($this->config[$model->alias][$field]['allowedMime'])) {
-				trigger_error('UploadBehavior Error: The Config '.$field.' isn\'t exsists.', E_USER_WARNING);
-				return false;
-			}
-			$allowedMime =
-				$this->config[$model->alias][$field]['allowedMime'];
-			if (!empty($value['name']) && !empty($allowedMime) && 
-				!in_array($value['type'], $allowedMime)) {
+			$config = $this->config[$model->alias][$field];
+			$_data = $this->_data[$model->alias][$field];
+			if (!empty($_data['name']) && $config['allowedMime'] && !in_array($_data['type'], $config['allowedMime'])) {
 				return false;
 			}
 		}
@@ -204,31 +185,14 @@ class UploadBehavior extends ModelBehavior {
 	function uploadCheckInvalidExt(&$model, $data)
 	{
 		foreach($data as $field => $value){
-			if (!isset($this->config[$model->alias][$field])) {
-				trigger_error('UploadBehavior Error: The Config '.$field.' isn\'t exsists.', E_USER_WARNING);
-				return false;
-			}
-			$allowedExt = $this->config[$model->alias][$field]['allowedExt'];
-			if (!empty($value['name']) && !empty($allowedExt)) {
-				$File = new File($value['name']);
+			$config = $this->config[$model->alias][$field];
+			$_data = $this->_data[$model->alias][$field];
+			if (!empty($_data['name']) && $config['allowedExt']) {
+				$File = new File($_data['name']);
 				$ext = low($File->ext());
-				$result = false;
-				foreach ($allowedExt as $extension) {
-					if ($ext === $extension) {
-						$result = true;
-					}
+				if (!in_array($ext, $config['allowedExt'])) {
+					return false;
 				}
-				return $result;
-			}
-		}
-		return true;
-	}
-
-	function uploadCheckEmpty(&$model, $data)
-	{
-		foreach($data as $field => $value){
-			if(!$this->config[$model->alias][$field]['allowEmpty'] && empty($value['name']) && $value['error'] > 0) {
-				return false;
 			}
 		}
 		return true;
@@ -236,67 +200,75 @@ class UploadBehavior extends ModelBehavior {
 	
 	function _upload(&$model, $field)
 	{
-		$data = $model->data[$model->alias][$field];
-		$file =
-			$this->config[$model->alias][$field]['dir'].low($data['name']);
-		$File = new File($this->fileRoot.$file);
-		$file = str_replace(
-			$File->name().'.',
-			String::uuid().'.',
-			$file);
-		if (!empty($this->config[$model->alias][$field]['ext'])) {
-			$file = str_replace(
-				'.'.$File->ext(), 
-				'.'.$this->config[$model->alias][$field]['ext'], 
-				$file);
-		}
+		$data = $this->_data[$model->alias][$field];
+		$file = $model->data[$model->alias][$field];
+		$file = strtr($file, '/', DS);
+		$config = $this->config[$model->alias][$field];
+		if ($file) {
+			if (!move_uploaded_file($data['tmp_name'], $this->fileRoot.$file)) {
+				trigger_error('UploadBehavior Error: The file '.$file.' can\'t upload.', E_USER_WARNING);
+				return false;
+			}
+			chmod($this->fileRoot.$file, 0666);
 		
-		if (!move_uploaded_file($data['tmp_name'], $this->fileRoot.$file)) {
-			trigger_error('UploadBehavior Error: The file '.$file.' can\'t upload.', E_USER_WARNING);
-			return false;
-		}
-		chmod($this->fileRoot.$file, 0666);
-		
-		// 拡張子指定のときは縮小して保存
-		if ($this->config[$model->alias][$field]['ext']) {
-			$Image = new ImageComponent;
-			$Image->set($this->fileRoot.$file);
-			$Image->reduce(500, 500);
-			$Image->output($this->fileRoot.$file,
-				$this->config[$model->alias][$field]['ext']);
+			// 拡張子指定のときは縮小して保存
+			if ($config['ext']) {
+				$Image = new ImageComponent;
+				$Image->set($this->fileRoot.$file);
+				$Image->reduce(500, 500);
+				$Image->output($this->fileRoot.$file, $config['ext']);
+			}
 		}
 		return $file;
 	}
 	
-	function beforeSave(&$model) {
+	function beforeValidate(&$model) {
+		$config = $this->config[$model->alias];
 		foreach ($this->config[$model->alias] as $field => $options) {
 			if (isset($model->data[$model->alias][$field])) {
-				$value = '';
-				$data = $model->data[$model->alias][$field];
-				if (!empty($data['name'])) {
-					if (isset($data[$model->primaryKey])) {
-						if (!$this->_remove($model, $field)) {
-							return false;
-						}
+				$data = $this->_data[$model->alias][$field] =
+					$model->data[$model->alias][$field];
+
+				$model->data[$model->alias][$field] = '';
+				if ($data['name']) {
+					$file = $config[$field]['dir'].low($data['name']);
+					$File = new File($this->fileRoot.$file);
+					$file = str_replace(
+						$File->name().'.', String::uuid().'.', $file);
+					if ($config[$field]['ext']) {
+						$file = str_replace(
+							'.'.$File->ext(), 
+							'.'.$config[$field]['ext'], $file);
 					}
-					$value = $this->_upload($model, $field);
-					if (!$value) {
+					$file = strtr($file, DS, '/');
+					$model->data[$model->alias][$field] = $file;
+				}
+			}
+		}
+		return true;
+	}
+	
+	function beforeSave(&$model) {
+		foreach ($this->config[$model->alias] as $field => $options) {
+			$value = '';
+			$data = $model->data[$model->alias];
+			$_data = $this->_data[$model->alias];
+			if (!empty($data[$field])) {
+				if (!empty($data[$model->primaryKey]) && !$this->_remove($model, $field)) {
 						return false;
-					}
 				}
-				if (!empty($data['remove'])) {
-					if (!empty($model->data[$model->alias]['id'])) {
-						if (!$this->_remove($model, $field)) {
-							return false;
-						}
-					}
+				if (!$this->_upload($model, $field)) {
+					return false;
 				}
-				$value = strtr($value, DS, '/');
-				$model->data[$model->alias][$field] = $value;
-				if (!empty($model->data[$model->alias][$model->primaryKey])) {
-					if (empty($data['name']) && empty($data['remove'])) {
-						unset($model->data[$model->alias][$field]);
-					}
+			}
+			if (!empty($_data[$field]['remove'])) {
+				if (!empty($data[$model->primaryKey]) && !$this->_remove($model, $field)) {
+						return false;
+				}
+			}
+			if (!empty($data[$model->primaryKey])) {
+				if (empty($_data[$field]['name']) && empty($_data[$field]['remove'])) {
+					unset($model->data[$model->alias][$field]);
 				}
 			}
 		}
@@ -305,10 +277,10 @@ class UploadBehavior extends ModelBehavior {
 	function _remove(&$model, $field)
 	{
 		$id = $model->id;
-		if (isset($model->data[$model->alias]['id'])) {
-			$id = $model->data[$model->alias]['id'];
+		if (isset($model->data[$model->alias][$model->primaryKey])) {
+			$id = $model->data[$model->alias][$model->primaryKey];
 		}
-		$file = $model->field($field, array('id' => $id));
+		$file = $model->field($field, array($model->primaryKey => $id));
 		$file = $this->fileRoot.$file;
 		if (is_file($file)) {
 			if (!@unlink($file)) {
