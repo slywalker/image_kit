@@ -15,6 +15,7 @@ class UploadBehavior extends ModelBehavior {
 		'allowedExt' => array('jpg', 'jpeg', 'png', 'gif'),
 		'max_size' => 2097152,
 		'ext' => null,
+		'allowEmpty'=>false,
 	);
 	
 	var $validate = array(
@@ -41,6 +42,10 @@ class UploadBehavior extends ModelBehavior {
 		'FieldName' => array(
 			'rule' => array('uploadCheckFieldName'),
 			'message' => 'フォームエラー'
+		),
+		'Empty' => array(
+			'rule' => array('uploadCheckEmpty'),
+			'message' => 'ファイルを指定してください'
 		),
 	);
 
@@ -214,6 +219,16 @@ class UploadBehavior extends ModelBehavior {
 					}
 				}
 				return $result;
+			}
+		}
+		return true;
+	}
+
+	function uploadCheckEmpty(&$model, $data)
+	{
+		foreach($data as $field => $value){
+			if(!$this->config[$model->alias][$field]['allowEmpty'] && empty($value['name']) && $value['error'] > 0) {
+				return false;
 			}
 		}
 		return true;
