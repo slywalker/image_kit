@@ -208,9 +208,7 @@ class UploadBehavior extends ModelBehavior {
 			if (!move_uploaded_file($data['tmp_name'], $this->fileRoot.$file)) {
 				trigger_error('UploadBehavior Error: The file '.$file.' can\'t upload.', E_USER_WARNING);
 				return false;
-			}
-			chmod($this->fileRoot.$file, 0666);
-		
+			}		
 			// 拡張子指定のときは縮小して保存
 			if ($config['ext']) {
 				$Image = new ImageComponent;
@@ -218,6 +216,7 @@ class UploadBehavior extends ModelBehavior {
 				$Image->reduce(500, 500);
 				$Image->output($this->fileRoot.$file, $config['ext']);
 			}
+			chmod($this->fileRoot.$file, 0666);
 		}
 		return $file;
 	}
@@ -253,7 +252,7 @@ class UploadBehavior extends ModelBehavior {
 		return $file;
 	}
 	
-	function beforeSave(&$model, $created) {
+	function beforeSave(&$model) {
 		foreach ($this->config[$model->alias] as $field => $options) {
 			if (isset($model->data[$model->alias][$field])) {
 				$_data = $this->_data[$model->alias];
@@ -264,14 +263,12 @@ class UploadBehavior extends ModelBehavior {
 					}
 				}
 				if ($model->data[$model->alias][$field]) {
-					if (!$this->_upload($model, $field)) {
+					// 以前のファイルを削除
+					if (!$this->_remove($model, $field)) {
 						return false;
 					}
-					// 更新の場合は、以前のファイルを削除
-					if (!$created) {
-						if (!$this->_remove($model, $field)) {
-							return false;
-						}
+					if (!$this->_upload($model, $field)) {
+						return false;
 					}
 				} else {
 					unset($model->data[$model->alias][$field]);
