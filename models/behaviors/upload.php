@@ -224,54 +224,61 @@ class UploadBehavior extends ModelBehavior {
 	
 	function beforeValidate(&$model) {
 		$config = $this->config[$model->alias];
-		foreach ($this->config[$model->alias] as $field => $options) {
+		foreach ($config as $field => $options) {
 			if (isset($model->data[$model->alias][$field])) {
 				$data = $this->_data[$model->alias][$field] =
 					$model->data[$model->alias][$field];
-
 				$model->data[$model->alias][$field] = '';
-				if ($data['name']) {
-					$file = $config[$field]['dir'].low($data['name']);
-					$File = new File($this->fileRoot.$file);
-					$file = str_replace(
-						$File->name().'.', String::uuid().'.', $file);
-					if ($config[$field]['ext']) {
-						$file = str_replace(
-							'.'.$File->ext(), 
-							'.'.$config[$field]['ext'], $file);
-					}
-					$file = strtr($file, DS, '/');
-					$model->data[$model->alias][$field] = $file;
+				
+				if (!empty($data['name'])) {
+					$model->data[$model->alias][$field]
+						= $this->_makeFilePath($model, $field);
 				}
 			}
 		}
 		return true;
 	}
 	
-	function beforeSave(&$model) {
+	function _makeFilePath(&$model, $field) {
+		$config = $this->config[$model->alias][$field];
+		$data = $this->_data[$model->alias][$field];
+
+		$file = $config['dir'].low($data['name']);
+		$File = new File($this->fileRoot.$file);
+		$file = str_replace($File->name().'.', String::uuid().'.', $file);
+		if ($config['ext']) {
+			$file = str_replace('.'.$File->ext(), '.'.$config['ext'], $file);
+		}
+		$file = strtr($file, DS, '/');
+		return $file;
+	}
+	
+	function beforeSave(&$model, $created) {
 		foreach ($this->config[$model->alias] as $field => $options) {
-			$value = '';
-			$data = $model->data[$model->alias];
-			$_data = $this->_data[$model->alias];
-			if (!empty($data[$field])) {
-				if (!empty($data[$model->primaryKey]) && !$this->_remove($model, $field)) {
+			if (isset($model->data[$model->alias][$field])) {
+				$_data = $this->_data[$model->alias];
+				// 画像のみ削除
+				if (!empty($_data[$field]['remove'])) {
+					if (!$this->_remove($model, $field)) {
 						return false;
+					}
 				}
-				if (!$this->_upload($model, $field)) {
-					return false;
-				}
-			}
-			if (!empty($_data[$field]['remove'])) {
-				if (!empty($data[$model->primaryKey]) && !$this->_remove($model, $field)) {
+				if ($model->data[$model->alias][$field]) {
+					if (!$this->_upload($model, $field)) {
 						return false;
-				}
-			}
-			if (!empty($data[$model->primaryKey])) {
-				if (empty($_data[$field]['name']) && empty($_data[$field]['remove'])) {
+					}
+					// 更新の場合は、以前のファイルを削除
+					if (!$created) {
+						if (!$this->_remove($model, $field)) {
+							return false;
+						}
+					}
+				} else {
 					unset($model->data[$model->alias][$field]);
 				}
 			}
 		}
+		return true;
 	}
 	
 	function _remove(&$model, $field)
