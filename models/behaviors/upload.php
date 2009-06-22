@@ -115,84 +115,84 @@ class UploadBehavior extends ModelBehavior {
 	
 	function uploadCheckFieldName(&$model, $data)
 	{
-		foreach($data as $field => $value){
-			if (!isset($this->config[$model->alias][$field])) {
-				trigger_error('UploadBehavior Error: The field "'.$field.'" wasn\'t declared as part of the UploadBehavior in model "'.$model->name.'".', E_USER_WARNING);
-				return false;
-			}
+		$field = key($data);
+		$value = current($data);
+		if (!isset($this->config[$model->alias][$field])) {
+			trigger_error('UploadBehavior Error: The field "'.$field.'" wasn\'t declared as part of the UploadBehavior in model "'.$model->name.'".', E_USER_WARNING);
+			return false;
 		}
 		return true;
 	}
 
 	function uploadCheckDir(&$model, $data)
 	{
-		foreach($data as $field => $value) {
-			$config = $this->config[$model->alias][$field];
-			$dir = $this->fileRoot.$config['dir'];
-			// Check if directory exists and create it if required
-			if (!is_dir($dir)) {
-				$Folder =& new Folder;
-				if ($Folder->mkdir($dir)) {
-					trigger_error('UploadBehavior Error: The directory '.$dir.' does not exist and cannot be created.', E_USER_WARNING);
-					return false;
-				}
-			}
-
-			// Check if directory is writable
-			if (!is_writable($dir)) {
-				trigger_error('UploadBehavior Error: The directory '.$config['dir'].' isn\'t writable.', E_USER_WARNING);
+		$field = key($data);
+		$value = current($data);
+		$config = $this->config[$model->alias][$field];
+		$dir = $this->fileRoot.$config['dir'];
+		// Check if directory exists and create it if required
+		if (!is_dir($dir)) {
+			$Folder =& new Folder;
+			if ($Folder->mkdir($dir)) {
+				trigger_error('UploadBehavior Error: The directory '.$dir.' does not exist and cannot be created.', E_USER_WARNING);
 				return false;
 			}
+		}
+
+		// Check if directory is writable
+		if (!is_writable($dir)) {
+			trigger_error('UploadBehavior Error: The directory '.$config['dir'].' isn\'t writable.', E_USER_WARNING);
+			return false;
 		}
 		return true;
 	}
 	
 	function uploadCheckUploadError(&$model, $data)
 	{
-		foreach($data as $field => $value){
-			$_data = $this->_data[$model->alias][$field];
-			if(!empty($_data['name']) && $_data['error'] > 0){
-				return false;
-			}
+		$field = key($data);
+		$value = current($data);
+		$_data = $this->_data[$model->alias][$field];
+		if(!empty($_data['name']) && $_data['error'] > 0){
+			return false;
 		}
 		return true;
 	}
 	
 	function uploadCheckMaxSize(&$model, $data)
 	{
-		foreach($data as $field => $value){
-			$config = $this->config[$model->alias][$field];
-			$_data = $this->_data[$model->alias][$field];
-			if (!empty($_data['name']) && $_data['size'] > $config['max_size']) {
-				return false;
-			}
+		$field = key($data);
+		$value = current($data);
+		$config = $this->config[$model->alias][$field];
+		$_data = $this->_data[$model->alias][$field];
+		if (!empty($_data['name']) && $_data['size'] > $config['max_size']) {
+			return false;
 		}
 		return true;
 	}
 	
 	function uploadCheckInvalidMime(&$model, $data)
 	{
-		foreach($data as $field => $value){
-			$config = $this->config[$model->alias][$field];
-			$_data = $this->_data[$model->alias][$field];
-			if (!empty($_data['name']) && $config['allowedMime'] && !in_array($_data['type'], $config['allowedMime'])) {
-				return false;
-			}
+		$field = key($data);
+		$value = current($data);
+		$config = $this->config[$model->alias][$field];
+		$_data = $this->_data[$model->alias][$field];
+		if (!empty($_data['name']) && $config['allowedMime'] && !in_array($_data['type'], $config['allowedMime'])) {
+			return false;
 		}
 		return true;
 	}
 	
 	function uploadCheckInvalidExt(&$model, $data)
 	{
-		foreach($data as $field => $value){
-			$config = $this->config[$model->alias][$field];
-			$_data = $this->_data[$model->alias][$field];
-			if (!empty($_data['name']) && $config['allowedExt']) {
-				$File = new File($_data['name']);
-				$ext = low($File->ext());
-				if (!in_array($ext, $config['allowedExt'])) {
-					return false;
-				}
+		$field = key($data);
+		$value = current($data);
+		$config = $this->config[$model->alias][$field];
+		$_data = $this->_data[$model->alias][$field];
+		if (!empty($_data['name']) && $config['allowedExt']) {
+			$File = new File($_data['name']);
+			$ext = low($File->ext());
+			if (!in_array($ext, $config['allowedExt'])) {
+				return false;
 			}
 		}
 		return true;
