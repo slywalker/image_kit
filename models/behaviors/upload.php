@@ -255,13 +255,6 @@ class UploadBehavior extends ModelBehavior {
 	function beforeSave(&$model) {
 		foreach ($this->config[$model->alias] as $field => $options) {
 			if (isset($model->data[$model->alias][$field])) {
-				$_data = $this->_data[$model->alias];
-				// 画像のみ削除
-				if (!empty($_data[$field]['remove'])) {
-					if (!$this->_remove($model, $field)) {
-						return false;
-					}
-				}
 				if ($model->data[$model->alias][$field]) {
 					// 以前のファイルを削除
 					if (!$this->_remove($model, $field)) {
@@ -272,6 +265,13 @@ class UploadBehavior extends ModelBehavior {
 					}
 				} else {
 					unset($model->data[$model->alias][$field]);
+				}
+				// 画像のみ削除
+				if (!empty($model->data[$model->alias][$field.'_remove'])) {
+					if (!$this->_remove($model, $field)) {
+						return false;
+					}
+					$model->data[$model->alias][$field] = '';
 				}
 			}
 		}
